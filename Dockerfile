@@ -1,8 +1,8 @@
-FROM alpine:3.7
+FROM alpine:3.8
 
 MAINTAINER Grigor Khachatryan <g@yvn.io>
 
-ENV KUBE_LATEST_VERSION="v1.8.5"
+ENV KUBE_LATEST_VERSION="v1.10.7"
 
 RUN apk add --update ca-certificates \
  && apk add --update -t deps curl \

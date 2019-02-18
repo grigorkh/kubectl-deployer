@@ -5,4 +5,5 @@ docker image location: https://hub.docker.com/r/gregi/kubectl-deployer/
 
 |Tag       | Alpine |   Kubectl    |
 |:--------:|:------:|:------------:|
-|latest    |3.7     |1.8.5         |
+|1.8.5     |3.7     |1.8.5         |
+|latest    |3.8     |1.10.7        |
