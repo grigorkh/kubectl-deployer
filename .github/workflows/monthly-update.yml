@@ -1,0 +1,104 @@
+name: Monthly Update
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # First of every month
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Install tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq cosign
+
+    - name: Get latest stable kubectl version
+      id: get_kubectl
+      run: |
+        version=$(curl -s https://dl.k8s.io/release/stable.txt)
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Get latest Alpine LTS version
+      id: get_alpine
+      run: |
+        version=$(curl -s https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/latest-releases.yaml | \
+          grep '^version:' | head -n1 | awk '{print $2}')
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Update Dockerfile if needed
+      id: update_dockerfile
+      run: |
+        changed=false
+        kube_version="${{ steps.get_kubectl.outputs.version }}"
+        alpine_version="${{ steps.get_alpine.outputs.version }}"
+
+        if ! grep -q "$kube_version" Dockerfile; then
+          sed -i -E "s/KUBECTL_VERSION=v[0-9]+\.[0-9]+\.[0-9]+/KUBECTL_VERSION=${kube_version}/" Dockerfile
+          changed=true
+        fi
+
+        if ! grep -q "FROM alpine:${alpine_version}" Dockerfile; then
+          sed -i -E "s/FROM alpine:[0-9]+\.[0-9]+/FROM alpine:${alpine_version}/" Dockerfile
+          sed -i -E "s/ARG ALPINE_VERSION=[0-9]+\.[0-9]+/ARG ALPINE_VERSION=${alpine_version}/" Dockerfile
+          changed=true
+        fi
+
+        echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+        echo "kube=${kube_version}" >> "$GITHUB_OUTPUT"
+        echo "alpine=${alpine_version}" >> "$GITHUB_OUTPUT"
+
+    - name: Commit and push changes
+      if: steps.update_dockerfile.outputs.changed == 'true'
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Monthly update: kubectl ${{ steps.update_dockerfile.outputs.kube }}, alpine ${{ steps.update_dockerfile.outputs.alpine }}"
+        branch: main
+        commit_user_name: github-actions
+        commit_user_email: actions@github.com
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build Docker images
+      if: steps.update_dockerfile.outputs.changed == 'true'
+      run: |
+        kube="${{ steps.update_dockerfile.outputs.kube }}"
+        version="${kube#v}"
+        docker build -t gregi/kubectl-deployer:latest .
+        docker tag gregi/kubectl-deployer:latest gregi/kubectl-deployer:${version}
+
+    - name: Scan image for vulnerabilities
+      if: steps.update_dockerfile.outputs.changed == 'true'
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: gregi/kubectl-deployer:latest
+        exit-code: '1'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Push Docker images
+      if: steps.update_dockerfile.outputs.changed == 'true'
+      run: |
+        kube="${{ steps.update_dockerfile.outputs.kube }}"
+        version="${kube#v}"
+        docker push gregi/kubectl-deployer:latest
+        docker push gregi/kubectl-deployer:${version}
+
+    # - name: Sign image with Cosign
+    #   if: steps.update_dockerfile.outputs.changed == 'true'
+    #   env:
+    #     COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+    #   run: |
+    #     echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | base64 -d > cosign.key
+    #     kube="${{ steps.update_dockerfile.outputs.kube }}"
+    #     version="${kube#v}"
+    #     cosign sign --key cosign.key docker.io/gregi/kubectl-deployer:latest
+    #     cosign sign --key cosign.key docker.io/gregi/kubectl-deployer:${version}
