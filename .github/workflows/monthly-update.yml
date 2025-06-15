@@ -16,7 +16,7 @@ jobs:
     - name: Install tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y curl jq cosign
+        sudo apt-get install -y curl jq
 
     - name: Get latest stable kubectl version
       id: get_kubectl
@@ -91,14 +91,3 @@ jobs:
         version="${kube#v}"
         docker push gregi/kubectl-deployer:latest
         docker push gregi/kubectl-deployer:${version}
-
-    # - name: Sign image with Cosign
-    #   if: steps.update_dockerfile.outputs.changed == 'true'
-    #   env:
-    #     COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-    #   run: |
-    #     echo "${{ secrets.COSIGN_PRIVATE_KEY }}" | base64 -d > cosign.key
-    #     kube="${{ steps.update_dockerfile.outputs.kube }}"
-    #     version="${kube#v}"
-    #     cosign sign --key cosign.key docker.io/gregi/kubectl-deployer:latest
-    #     cosign sign --key cosign.key docker.io/gregi/kubectl-deployer:${version}
