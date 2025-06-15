@@ -15,7 +15,8 @@ Minimal, secure Alpine-based Docker image with `kubectl` and `gettext`. Ideal fo
 |1.11.3     |3.9     |1.11.3       |
 |1.26.3     |3.17    |1.26.3       |
 |1.30.1     |3.19    |1.30.1       |
-|latest     |3.19    |1.30.1       |
+|1.33.1     |3.19    |1.33.1       |
+|latest     |3.19    |1.33.1       |
 
 ---
 
