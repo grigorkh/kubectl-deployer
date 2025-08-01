@@ -4,7 +4,7 @@ FROM alpine:${ALPINE_VERSION}
 
 LABEL maintainer="Grigor Khachatryan"
 
-ARG KUBECTL_VERSION=v1.33.2
+ARG KUBECTL_VERSION=v1.33.3
 ENV KUBECTL_VERSION=${KUBECTL_VERSION}
 
 RUN apk add --no-cache curl ca-certificates gettext \
